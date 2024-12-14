@@ -1,49 +1,34 @@
 const express = require('express');
-const userController = require('../controllers/userController');
+const UserController = require('../controllers/userController');
+const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
 
-/**
- * @swagger
- * /api/users:
- *   get:
- *     summary: Retrieve a list of users
- *     responses:
- *       200:
- *         description: A list of users.
- *       404:
- *         description: No users found.
- *       500:
- *         description: Internal server error.
- */
-router.get('/users', userController.getAllUsers);
+const validateRegister = [
+    body('username').notEmpty().withMessage('Username is required'),
+    body('email').isEmail().withMessage('Invalid email format'),
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+];
 
-/**
- * @swagger
- * /api/users:
- *   post:
- *     summary: Create a new user
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               email:
- *                 type: string
- *     responses:
- *       201:
- *         description: User created successfully.
- *       400:
- *         description: Bad request. Name or email missing.
- *       409:
- *         description: Conflict. User already exists.
- *       500:
- *         description: Internal server error.
- */
-router.post('/users', userController.createUser);
+const validateLogin = [
+    body('email').isEmail().withMessage('Invalid email format'),
+    body('password').notEmpty().withMessage('Password is required')
+];
+
+router.post('/register', validateRegister, (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(422).json({ errors: errors.array() });
+    }
+    next();
+}, UserController.register);
+
+router.post('/login', validateLogin, (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(422).json({ errors: errors.array() });
+    }
+    next();
+}, UserController.login);
 
 module.exports = router;

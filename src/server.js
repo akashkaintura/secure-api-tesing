@@ -1,37 +1,77 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const dotenv = require('dotenv');
+const helmet = require('helmet');
+const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const swaggerSetup = require('./src/config/swagger');
-const securityMiddleware = require('./src/middleware/authMiddleware');
+const errorMiddleware = require('./middleware/errorMiddleware');
 const userRoutes = require('./routes/userRoutes');
 
-const app = express();
+// Load environment variables
+dotenv.config();
 
-// Security Middleware
-app.use(securityMiddleware.helmet());
-app.use(securityMiddleware.rateLimiter());
+class Server {
+    constructor() {
+        this.app = express();
+        this.initializeMiddlewares();
+        this.connectDatabase();
+        this.initializeRoutes();
+        this.initializeSwagger();
+        this.handleErrors();
+    }
 
-// Database Connection
-mongoose.connect('mongodb://localhost/securedb', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-});
+    initializeMiddlewares() {
+        // Security and parsing middlewares
+        this.app.use(helmet());
+        this.app.use(cors());
+        this.app.use(express.json());
+        this.app.use(express.urlencoded({ extended: true }));
 
-// Swagger Documentation
-swaggerSetup(app);
+        // Rate limiting
+        const limiter = rateLimit({
+            windowMs: 15 * 60 * 1000, // 15 minutes
+            max: 100 // limit each IP to 100 requests
+        });
+        this.app.use(limiter);
+    }
 
-// Routes
-app.use('/api/users', userRoutes);
+    async connectDatabase() {
+        try {
+            await mongoose.connect(process.env.MONGODB_URI, {
+                useNewUrlParser: true,
+                useUnifiedTopology: true,
+                useCreateIndex: true
+            });
+            console.log('Database connected successfully');
+        } catch (error) {
+            console.error('Database connection error:', error);
+            process.exit(1);
+        }
+    }
 
-// Error Handling Middleware
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({
-        error: 'Something went wrong!',
-        message: err.message
-    });
-});
+    initializeRoutes() {
+        this.app.use('/api/users', userRoutes);
+    }
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+    initializeSwagger() {
+        swaggerSetup(this.app);
+    }
+
+    handleErrors() {
+        this.app.use(errorMiddleware);
+    }
+
+    start() {
+        const PORT = process.env.PORT || 3000;
+        this.app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+    }
+}
+
+// Create and start server
+const server = new Server();
+server.start();
+
+module.exports = server.app;

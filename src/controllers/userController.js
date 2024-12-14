@@ -1,27 +1,47 @@
-const User = require('../models/userModel');
-const jwt = require('jsonwebtoken');
+const UserService = require('../services/userService');
+const { validationResult } = require('express-validator');
 
 class UserController {
-    async register(req, res) {
+    async register(req, res, next) {
         try {
-            const { username, password } = req.body;
-            const user = new User({ username, password });
-            await user.save();
+            // Validate request
+            const errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return res.status(400).json({ errors: errors.array() });
+            }
 
-            const token = jwt.sign(
-                { id: user._id },
-                process.env.JWT_SECRET,
-                { expiresIn: '1h' }
-            );
+            // Register user
+            const { user, token } = await UserService.register(req.body);
 
-            res.status(201).json({ token });
+            res.status(201).json({
+                message: 'User registered successfully',
+                user,
+                token
+            });
         } catch (error) {
-            res.status(400).json({ error: error.message });
+            next(error);
         }
     }
 
-    async login(req, res) {
-        // Authentication logic
+    async login(req, res, next) {
+        try {
+            // Validate request
+            const errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return res.status(400).json({ errors: errors.array() });
+            }
+
+            const { email, password } = req.body;
+            const { user, token } = await UserService.login(email, password);
+
+            res.json({
+                message: 'Login successful',
+                user,
+                token
+            });
+        } catch (error) {
+            next(error);
+        }
     }
 }
 
