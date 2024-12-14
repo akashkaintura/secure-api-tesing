@@ -5,7 +5,7 @@ const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 require('dotenv').config();
 
-const routes = require('./routes');
+const routes = require('./routes/userRoutes');
 
 const app = express();
 

@@ -1,24 +1,28 @@
-const users = []; // Mock database
+const User = require('../models/userModel');
+const jwt = require('jsonwebtoken');
 
-exports.getAllUsers = (req, res) => {
-    if (users.length === 0) {
-        return res.status(404).json({ message: 'No users found' });
+class UserController {
+    async register(req, res) {
+        try {
+            const { username, password } = req.body;
+            const user = new User({ username, password });
+            await user.save();
+
+            const token = jwt.sign(
+                { id: user._id },
+                process.env.JWT_SECRET,
+                { expiresIn: '1h' }
+            );
+
+            res.status(201).json({ token });
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
     }
-    res.status(200).json(users);
-};
 
-exports.createUser = (req, res) => {
-    const { name, email } = req.body;
-    if (!name || !email) {
-        return res.status(400).json({ message: 'Name and email are required' });
+    async login(req, res) {
+        // Authentication logic
     }
+}
 
-    const userExists = users.some((user) => user.email === email);
-    if (userExists) {
-        return res.status(409).json({ message: 'User with this email already exists' });
-    }
-
-    const newUser = { id: users.length + 1, name, email };
-    users.push(newUser);
-    res.status(201).json(newUser);
-};
+module.exports = new UserController();
